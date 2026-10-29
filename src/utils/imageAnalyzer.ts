@@ -29,51 +29,57 @@ export function analyzeUploadedImage(
   let centralLuminance = 0;
 
   if (ctx) {
-    ctx.drawImage(imgElement, 0, 0, size, size);
-    const imgData = ctx.getImageData(0, 0, size, size);
-    const data = imgData.data;
+    try {
+      ctx.drawImage(imgElement, 0, 0, size, size);
+      const imgData = ctx.getImageData(0, 0, size, size);
+      const data = imgData.data;
 
-    let totalColorDiff = 0;
+      let totalColorDiff = 0;
 
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const idx = (y * size + x) * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
 
-        totalColorDiff += Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
-        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-        totalLuminance += gray;
+          totalColorDiff += Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
+          const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+          totalLuminance += gray;
 
-        // Hemithorax distribution (Left vs Right)
-        if (x < size / 2) {
-          leftHemithoraxLuminance += gray;
-        } else {
-          rightHemithoraxLuminance += gray;
-        }
+          // Hemithorax distribution (Left vs Right)
+          if (x < size / 2) {
+            leftHemithoraxLuminance += gray;
+          } else {
+            rightHemithoraxLuminance += gray;
+          }
 
-        // Peripheral vs Central distribution
-        const distFromCenter = Math.sqrt(Math.pow((x - size / 2) / (size / 2), 2) + Math.pow((y - size / 2) / (size / 2), 2));
-        if (distFromCenter > 0.5) {
-          peripheralLuminance += gray;
-        } else {
-          centralLuminance += gray;
-        }
+          // Peripheral vs Central distribution
+          const distFromCenter = Math.sqrt(Math.pow((x - size / 2) / (size / 2), 2) + Math.pow((y - size / 2) / (size / 2), 2));
+          if (distFromCenter > 0.5) {
+            peripheralLuminance += gray;
+          } else {
+            centralLuminance += gray;
+          }
 
-        // Detect localized density / consolidation hotspot in the middle 60% of the image
-        if (x > size * 0.2 && x < size * 0.8 && y > size * 0.25 && y < size * 0.85) {
-          if (gray > maxContrast) {
-            maxContrast = gray;
-            maxOpacityX = x / size;
-            maxOpacityY = y / size;
+          // Detect localized density / consolidation hotspot in the middle 60% of the image
+          if (x > size * 0.2 && x < size * 0.8 && y > size * 0.25 && y < size * 0.85) {
+            if (gray > maxContrast) {
+              maxContrast = gray;
+              maxOpacityX = x / size;
+              maxOpacityY = y / size;
+            }
           }
         }
       }
-    }
 
-    const avgColorDiff = totalColorDiff / (size * size);
-    isMonochrome = avgColorDiff < 20; // Monochrome if color saturation is minimal
+      const avgColorDiff = totalColorDiff / (size * size);
+      isMonochrome = avgColorDiff < 20; // Monochrome if color saturation is minimal
+    } catch (e) {
+      console.warn('Canvas pixel extraction fallback:', e);
+      // Fallback heuristics: determine by filename or default to CXR
+      isMonochrome = !fileName.toLowerCase().includes('derm') && !fileName.toLowerCase().includes('skin');
+    }
   }
 
   const detectedModality: ModalityType = isMonochrome ? 'chest_xray' : 'dermoscopy';

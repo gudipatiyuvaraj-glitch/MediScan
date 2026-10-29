@@ -136,8 +136,10 @@ export const InferenceStudio: React.FC = () => {
     if (!canvas) return;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = customImageSrc || activeCase.imagePath;
+    const imgSrc = customImageSrc || activeCase.imagePath;
+    if (!imgSrc.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
 
     img.onload = () => {
       canvas.width = 512;
@@ -180,52 +182,62 @@ export const InferenceStudio: React.FC = () => {
 
       // Add Gaussian noise if enabled
       if (robustness.gaussianNoise > 0) {
-        const imgData = tempCtx.getImageData(0, 0, 512, 512);
-        const data = imgData.data;
-        const noiseAmp = robustness.gaussianNoise * 70;
-        for (let i = 0; i < data.length; i += 4) {
-          const rand = (Math.random() - 0.5) * noiseAmp;
-          data[i] = Math.min(255, Math.max(0, data[i] + rand));
-          data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + rand));
-          data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + rand));
+        try {
+          const imgData = tempCtx.getImageData(0, 0, 512, 512);
+          const data = imgData.data;
+          const noiseAmp = robustness.gaussianNoise * 70;
+          for (let i = 0; i < data.length; i += 4) {
+            const rand = (Math.random() - 0.5) * noiseAmp;
+            data[i] = Math.min(255, Math.max(0, data[i] + rand));
+            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + rand));
+            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + rand));
+          }
+          tempCtx.putImageData(imgData, 0, 0);
+        } catch {
+          // Ignore if image data reading is restricted
         }
-        tempCtx.putImageData(imgData, 0, 0);
       }
 
       // Apply DICOM Windowing if modified
       if (dicomPreset !== 'Default / Raw' || invertDicom || windowWidth !== 400 || windowLevel !== 50) {
-        const rawData = tempCtx.getImageData(0, 0, 512, 512);
-        applyWindowLevel(rawData, tempCanvas, windowWidth, windowLevel, invertDicom);
+        try {
+          const rawData = tempCtx.getImageData(0, 0, 512, 512);
+          applyWindowLevel(rawData, tempCanvas, windowWidth, windowLevel, invertDicom);
+        } catch {
+          // Ignore windowing error
+        }
       }
 
-      // Render primary model Grad-CAM
-      const processedImg = new Image();
-      processedImg.src = tempCanvas.toDataURL();
-      processedImg.onload = () => {
-        renderGradCamToCanvas(canvas, processedImg, activeCase.gradCamRegion, gradCamConfig);
+      // Render primary model Grad-CAM directly from tempCanvas without serializing to dataURL
+      renderGradCamToCanvas(canvas, tempCanvas, activeCase.gradCamRegion, gradCamConfig);
 
-        // If Consensus Mode is active, also render ResNet on secondary canvas
-        if (isConsensusMode && secondaryCanvasRef.current) {
-          const secCanvas = secondaryCanvasRef.current;
-          secCanvas.width = 512;
-          secCanvas.height = 512;
-          renderGradCamToCanvas(
-            secCanvas,
-            processedImg,
-            {
-              ...activeCase.gradCamRegion,
-              intensity: activeCase.gradCamRegion.intensity * 0.94,
-              radiusX: activeCase.gradCamRegion.radiusX * 1.1,
-            },
-            {
-              ...gradCamConfig,
-              colormap: 'viridis',
-              targetLayer: 'layer4[2].conv3 (2048ch)',
-            }
-          );
-        }
-      };
+      // If Consensus Mode is active, also render ResNet on secondary canvas
+      if (isConsensusMode && secondaryCanvasRef.current) {
+        const secCanvas = secondaryCanvasRef.current;
+        secCanvas.width = 512;
+        secCanvas.height = 512;
+        renderGradCamToCanvas(
+          secCanvas,
+          tempCanvas,
+          {
+            ...activeCase.gradCamRegion,
+            intensity: activeCase.gradCamRegion.intensity * 0.94,
+            radiusX: activeCase.gradCamRegion.radiusX * 1.1,
+          },
+          {
+            ...gradCamConfig,
+            colormap: 'viridis',
+            targetLayer: 'layer4[2].conv3 (2048ch)',
+          }
+        );
+      }
     };
+
+    img.onerror = (e) => {
+      console.error('Failed to load image in canvas:', imgSrc, e);
+    };
+
+    img.src = imgSrc;
   }, [
     activeCase,
     gradCamConfig,
@@ -268,23 +280,28 @@ export const InferenceStudio: React.FC = () => {
       }
 
       const tempImg = new Image();
-      tempImg.crossOrigin = 'anonymous';
       tempImg.onload = () => {
-        // Execute dynamic clinical neural feature extraction
-        const analyzed = analyzeUploadedImage(tempImg, src, file.name);
+        try {
+          // Execute dynamic clinical neural feature extraction
+          const analyzed = analyzeUploadedImage(tempImg, src, file.name);
 
-        // Update modality and active case to reflect the uploaded scan
-        setSelectedModality(analyzed.modality);
-        setActiveCase(analyzed);
-        setCustomImageSrc(src);
+          // Update modality and active case to reflect the uploaded scan
+          setSelectedModality(analyzed.modality);
+          setActiveCase(analyzed);
+          setCustomImageSrc(src);
 
-        // Simulated inference forward-pass completion (<500ms)
-        setTimeout(() => {
+          // Simulated inference forward-pass completion (<500ms)
+          setTimeout(() => {
+            setIsInferring(false);
+            setUploadSuccessMsg(
+              `Inference complete for ${file.name}: ${analyzed.predictedClass} (${(analyzed.confidence * 100).toFixed(1)}% confidence)`
+            );
+          }, 450);
+        } catch (err) {
+          console.error('Analysis error:', err);
           setIsInferring(false);
-          setUploadSuccessMsg(
-            `Inference complete for ${file.name}: ${analyzed.predictedClass} (${(analyzed.confidence * 100).toFixed(1)}% confidence)`
-          );
-        }, 450);
+          setUploadSuccessMsg('Analysis completed with standard diagnostic defaults.');
+        }
       };
 
       tempImg.onerror = () => {

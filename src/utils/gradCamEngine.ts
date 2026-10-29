@@ -150,7 +150,7 @@ export function generateActivationMatrix(
  */
 export function renderGradCamToCanvas(
   canvas: HTMLCanvasElement,
-  imageElement: HTMLImageElement,
+  imageElement: CanvasImageSource,
   region: HeatmapRegion,
   config: GradCamConfig
 ): void {
