@@ -38,6 +38,7 @@ import {
 import { CLINICAL_CASES } from '../data/clinicalCases';
 import { renderGradCamToCanvas } from '../utils/gradCamEngine';
 import { DICOM_PRESETS, applyWindowLevel } from '../utils/dicomEngine';
+import { analyzeUploadedImage } from '../utils/imageAnalyzer';
 
 export const InferenceStudio: React.FC = () => {
   const [selectedModality, setSelectedModality] = useState<ModalityType>('chest_xray');
@@ -45,6 +46,8 @@ export const InferenceStudio: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<ModelArchitecture>('EfficientNet-B0');
   const [isConsensusMode, setIsConsensusMode] = useState<boolean>(false);
   const [showStressTester, setShowStressTester] = useState<boolean>(false);
+  const [uploadSuccessMsg, setUploadSuccessMsg] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
   
   // Custom uploaded image state
   const [customImageSrc, setCustomImageSrc] = useState<string | null>(null);
@@ -246,23 +249,83 @@ export const InferenceStudio: React.FC = () => {
     }
   };
 
-  // Handle custom file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Process and analyze any uploaded image file (PNG, JPG, WEBP, or DICOM raster)
+  const processUploadedFile = (file: File) => {
     setIsInferring(true);
+    setUploadSuccessMsg(null);
+
     const reader = new FileReader();
+    reader.onerror = () => {
+      setIsInferring(false);
+      setUploadSuccessMsg('Failed to read the selected file. Please select a valid PNG, JPG, or DICOM image.');
+    };
+
     reader.onload = (event) => {
       const src = event.target?.result as string;
-      setCustomImageSrc(src);
-
-      // Simulate CNN forward pass latency (<1.2s)
-      setTimeout(() => {
+      if (!src) {
         setIsInferring(false);
-      }, 750);
+        return;
+      }
+
+      const tempImg = new Image();
+      tempImg.crossOrigin = 'anonymous';
+      tempImg.onload = () => {
+        // Execute dynamic clinical neural feature extraction
+        const analyzed = analyzeUploadedImage(tempImg, src, file.name);
+
+        // Update modality and active case to reflect the uploaded scan
+        setSelectedModality(analyzed.modality);
+        setActiveCase(analyzed);
+        setCustomImageSrc(src);
+
+        // Simulated inference forward-pass completion (<500ms)
+        setTimeout(() => {
+          setIsInferring(false);
+          setUploadSuccessMsg(
+            `Inference complete for ${file.name}: ${analyzed.predictedClass} (${(analyzed.confidence * 100).toFixed(1)}% confidence)`
+          );
+        }, 450);
+      };
+
+      tempImg.onerror = () => {
+        setIsInferring(false);
+        setUploadSuccessMsg('Could not render image. Please ensure it is a standard image format.');
+      };
+
+      tempImg.src = src;
     };
+
     reader.readAsDataURL(file);
+  };
+
+  // Handle file input change
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processUploadedFile(file);
+    }
+    // Reset file input value so re-uploading the same file triggers change
+    e.target.value = '';
+  };
+
+  // Handle Drag and Drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processUploadedFile(file);
+    }
   };
 
   // Handle interactive canvas crosshair probe
@@ -626,14 +689,46 @@ export const InferenceStudio: React.FC = () => {
               </div>
             </div>
 
+            {/* Upload Notification Banner */}
+            {uploadSuccessMsg && (
+              <div className="mt-2 p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between text-xs text-cyan-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>{uploadSuccessMsg}</span>
+                </div>
+                <button
+                  onClick={() => setUploadSuccessMsg(null)}
+                  className="text-cyan-400 hover:text-white ml-2 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Main Canvas Viewport (Single or Dual Side-by-Side) */}
             <div
-              className={`relative mt-3 w-full mx-auto rounded-lg overflow-hidden bg-black border border-slate-800 flex items-center justify-center ${
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative mt-3 w-full mx-auto rounded-lg overflow-hidden bg-black border transition-all flex items-center justify-center ${
+                isDraggingOver
+                  ? 'border-cyan-400 ring-2 ring-cyan-500/50 bg-cyan-950/20'
+                  : 'border-slate-800'
+              } ${
                 isConsensusMode
                   ? 'grid grid-cols-1 md:grid-cols-2 gap-2 p-2'
                   : 'aspect-square max-w-[512px]'
               }`}
             >
+              {isDraggingOver && (
+                <div className="absolute inset-0 z-30 bg-cyan-950/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 pointer-events-none">
+                  <Upload className="w-8 h-8 text-cyan-400 animate-bounce" />
+                  <span className="text-xs font-semibold text-white">
+                    Drop image to classify and compute Grad-CAM
+                  </span>
+                </div>
+              )}
+
               {isInferring && (
                 <div className="absolute inset-0 z-20 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2">
                   <Activity className="w-8 h-8 text-cyan-400 animate-spin" />
