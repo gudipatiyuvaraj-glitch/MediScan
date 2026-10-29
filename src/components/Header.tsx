@@ -11,6 +11,7 @@ import { Presentation, ShieldCheck } from 'lucide-react';
 
 export type ActiveTab =
   | 'inference'
+  | 'atlas'
   | 'batch'
   | 'comparison'
   | 'pipeline'
@@ -57,6 +58,17 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Diagnosis & Grad-CAM
+          </button>
+
+          <button
+            onClick={() => onSelectTab('atlas')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+              activeTab === 'atlas'
+                ? 'bg-slate-800 text-cyan-400 border border-slate-700'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            Diagnostic Atlas
           </button>
 
           <button
@@ -132,6 +144,7 @@ export const Header: React.FC<HeaderProps> = ({
         {(
           [
             ['inference', 'Diagnosis'],
+            ['atlas', 'Atlas'],
             ['batch', 'Batch'],
             ['comparison', 'Models'],
             ['pipeline', 'Code & ML'],

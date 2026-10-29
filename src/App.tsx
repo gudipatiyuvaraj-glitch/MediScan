@@ -13,6 +13,7 @@ import { MLPipelineStudio } from './components/MLPipelineStudio';
 import { EdgeCasesAudit } from './components/EdgeCasesAudit';
 import { ModelCardView } from './components/ModelCardView';
 import { PresentationMode } from './components/PresentationMode';
+import { PathologyAtlas } from './components/PathologyAtlas';
 import { ShieldCheck, Cpu, GitBranch, HeartPulse } from 'lucide-react';
 
 export default function App() {
@@ -31,6 +32,13 @@ export default function App() {
       {/* Main Workspace Stage */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'inference' && <InferenceStudio />}
+        {activeTab === 'atlas' && (
+          <PathologyAtlas
+            onSelectConditionToTest={() => {
+              setActiveTab('inference');
+            }}
+          />
+        )}
         {activeTab === 'batch' && <BatchEvaluation />}
         {activeTab === 'comparison' && <ModelComparison />}
         {activeTab === 'pipeline' && <MLPipelineStudio />}
