@@ -1,0 +1,6 @@
+{
+  "name": "MediScan - Medical Image Classification & Explainability",
+  "description": "Deep learning medical image classification system with ResNet-50 & EfficientNet-B0 transfer learning, Grad-CAM explainability, model comparison, DICOM viewer, and batch diagnostic evaluation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
