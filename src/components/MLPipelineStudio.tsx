@@ -119,37 +119,48 @@ export const MLPipelineStudio: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            // Sequential download of all deliverable scripts
-            const deliverables = [
-              { name: 'train_pipeline.py', content: TRAINING_PIPELINE_CODE.content },
-              { name: 'grad_cam_engine.py', content: GRAD_CAM_CODE.content },
-              { name: 'evaluate_metrics.py', content: EVALUATION_REPORT_CODE.content },
-              {
-                name: 'requirements.txt',
-                content:
-                  'torch>=2.2.0\ntorchvision>=0.17.0\nalbumentations>=1.4.0\nopencv-python-headless>=4.9.0\nscikit-learn>=1.4.0\nnumpy>=1.26.0\npillow>=10.2.0\nmlflow>=2.11.0\nstreamlit>=1.32.0\n',
-              },
-            ];
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <a
+            href="/mediscan-project.zip"
+            download="MediScan-main.zip"
+            className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-md transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Project ZIP (For GitHub Desktop)</span>
+          </a>
 
-            deliverables.forEach((item, index) => {
-              setTimeout(() => {
-                const blob = new Blob([item.content], { type: 'text/plain;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = item.name;
-                a.click();
-                URL.revokeObjectURL(a.href);
-              }, index * 250);
-            });
-          }}
-          className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-md transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export Complete Code Suite (4 Files)</span>
-        </button>
+          <button
+            onClick={() => {
+              // Sequential download of all deliverable scripts
+              const deliverables = [
+                { name: 'train_pipeline.py', content: TRAINING_PIPELINE_CODE.content },
+                { name: 'grad_cam_engine.py', content: GRAD_CAM_CODE.content },
+                { name: 'evaluate_metrics.py', content: EVALUATION_REPORT_CODE.content },
+                {
+                  name: 'requirements.txt',
+                  content:
+                    'torch>=2.2.0\ntorchvision>=0.17.0\nalbumentations>=1.4.0\nopencv-python-headless>=4.9.0\nscikit-learn>=1.4.0\nnumpy>=1.26.0\npillow>=10.2.0\nmlflow>=2.11.0\nstreamlit>=1.32.0\n',
+                },
+              ];
+
+              deliverables.forEach((item, index) => {
+                setTimeout(() => {
+                  const blob = new Blob([item.content], { type: 'text/plain;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = item.name;
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                }, index * 250);
+              });
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Code Scripts Only</span>
+          </button>
+        </div>
       </div>
 
       {/* Interactive Data Augmentation Playground */}
